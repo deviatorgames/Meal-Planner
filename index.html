@@ -40,6 +40,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         input, select, textarea { font-size: 16px !important; }
+        .img-placeholder { background-color: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e1; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -80,9 +81,16 @@
         </div>
 
         <div id="view-inventory" class="tab-content block">
-            <div class="mb-6">
-                <h2 class="text-2xl font-bold text-gray-900">Pantry Inventory</h2>
-                <p class="text-sm text-gray-500 mt-1">Manage ingredients and set package pricing.</p>
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
+                <div class="w-full sm:w-1/2">
+                    <h2 class="text-2xl font-bold text-gray-900">Pantry Inventory</h2>
+                    <div class="mt-2 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                        </div>
+                        <input type="text" id="inventory-search" onkeyup="renderInventory()" placeholder="Search pantry ingredients..." class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none shadow-sm">
+                    </div>
+                </div>
             </div>
 
             <div class="flex flex-col lg:flex-row gap-6">
@@ -93,39 +101,70 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
                             <input type="text" id="inv-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
                         </div>
+
+                        <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Item Image</label>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Upload File</label>
+                                    <input type="file" id="inv-image-file" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer border border-gray-300 rounded-md bg-white">
+                                </div>
+                                <div class="flex items-center text-xs text-gray-400 font-bold uppercase before:flex-1 before:border-t before:border-gray-200 before:mr-2 after:flex-1 after:border-t after:border-gray-200 after:ml-2">OR</div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Paste Image URL</label>
+                                    <input type="url" id="inv-image-url" placeholder="https://..." class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Price ($)</label>
+                            <input type="number" id="inv-price" required min="0.01" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+
                         <div class="mb-4 grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Total Price ($)</label>
-                                <input type="number" id="inv-price" required min="0.01" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Pkg Qty</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Package Size</label>
                                 <input type="number" id="inv-qty" required min="0.01" step="0.01" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Base Unit</label>
+                                <select id="inv-unit" required class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <optgroup label="Weight">
+                                        <option value="g">Grams (g)</option><option value="kg">Kilograms (kg)</option><option value="oz">Ounces (oz)</option><option value="lb">Pounds (lb)</option>
+                                    </optgroup>
+                                    <optgroup label="Volume">
+                                        <option value="ml">Milliliters (ml)</option><option value="l">Liters (l)</option><option value="tsp">Teaspoons (tsp)</option><option value="tbsp">Tablespoons (tbsp)</option><option value="fl oz">Fluid Oz (fl oz)</option><option value="cup">Cups</option>
+                                    </optgroup>
+                                    <optgroup label="Count">
+                                        <option value="count">Count / Piece</option><option value="slice">Slice</option>
+                                        <option value="clove">Clove</option><option value="bulb">Bulb</option><option value="bunch">Bunch</option><option value="pinch">Pinch</option>
+                                    </optgroup>
+                                </select>
+                            </div>
                         </div>
-                        <div class="mb-5">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Base Unit</label>
-                            <select id="inv-unit" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-brand-500 outline-none">
-                                <optgroup label="Weight">
-                                    <option value="g">Grams (g)</option>
-                                    <option value="kg">Kilograms (kg)</option>
-                                    <option value="oz">Ounces (oz)</option>
-                                    <option value="lb">Pounds (lb)</option>
-                                </optgroup>
-                                <optgroup label="Volume">
-                                    <option value="ml">Milliliters (ml)</option>
-                                    <option value="l">Liters (l)</option>
-                                    <option value="tsp">Teaspoons (tsp)</option>
-                                    <option value="tbsp">Tablespoons (tbsp)</option>
-                                    <option value="fl oz">Fluid Oz (fl oz)</option>
-                                    <option value="cup">Cups</option>
-                                </optgroup>
-                                <optgroup label="Count">
-                                    <option value="count">Count / Piece</option>
-                                    <option value="slice">Slice</option>
-                                </optgroup>
-                            </select>
+
+                        <div class="mb-5 p-3 bg-brand-50 border border-brand-100 rounded-md">
+                            <label class="block text-sm font-semibold text-brand-700 mb-1">Equivalent Size (Optional)</label>
+                            <p class="text-xs text-brand-600 mb-2 leading-tight">Link a volume to a weight (e.g. 5 lbs = 18.9 cups) so recipes can calculate using either.</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="number" id="inv-sec-qty" min="0.01" step="0.01" placeholder="Qty" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                                <select id="inv-sec-unit" class="w-full px-2 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <option value="">-- Select --</option>
+                                    <optgroup label="Weight">
+                                        <option value="g">Grams (g)</option><option value="kg">Kilograms (kg)</option><option value="oz">Ounces (oz)</option><option value="lb">Pounds (lb)</option>
+                                    </optgroup>
+                                    <optgroup label="Volume">
+                                        <option value="ml">Milliliters (ml)</option><option value="l">Liters (l)</option><option value="tsp">Teaspoons (tsp)</option><option value="tbsp">Tablespoons (tbsp)</option><option value="fl oz">Fluid Oz (fl oz)</option><option value="cup">Cups</option>
+                                    </optgroup>
+                                    <optgroup label="Count">
+                                        <option value="count">Count / Piece</option><option value="slice">Slice</option>
+                                        <option value="clove">Clove</option><option value="bulb">Bulb</option><option value="bunch">Bunch</option><option value="pinch">Pinch</option>
+                                    </optgroup>
+                                </select>
+                            </div>
                         </div>
+
                         <div class="flex gap-2">
                             <button type="submit" id="inv-submit-btn" class="flex-grow bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
                                 Save to Pantry
@@ -148,10 +187,15 @@
         </div>
 
         <div id="view-recipes" class="tab-content hidden">
-            <div class="mb-6 flex flex-wrap justify-between items-end gap-3">
-                <div>
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
+                <div class="w-full sm:w-1/2">
                     <h2 class="text-2xl font-bold text-gray-900">Recipes</h2>
-                    <p class="text-sm text-gray-500 mt-1">Build meals and calculate costs dynamically.</p>
+                    <div class="mt-2 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                        </div>
+                        <input type="text" id="recipe-search" onkeyup="renderRecipes()" placeholder="Search recipes by name..." class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none shadow-sm">
+                    </div>
                 </div>
                 <button onclick="cancelEditRecipe()" id="btn-new-recipe" class="hidden bg-brand-100 text-brand-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-200 transition shadow-sm">
                     <i class="fa-solid fa-plus mr-1"></i> New Recipe
@@ -167,6 +211,21 @@
                             <input type="text" id="rec-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
                         </div>
                         
+                        <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Recipe Photo</label>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Upload File</label>
+                                    <input type="file" id="rec-image-file" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer border border-gray-300 rounded-md bg-white">
+                                </div>
+                                <div class="flex items-center text-xs text-gray-400 font-bold uppercase before:flex-1 before:border-t before:border-gray-200 before:mr-2 after:flex-1 after:border-t after:border-gray-200 after:ml-2">OR</div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Paste Image URL</label>
+                                    <input type="url" id="rec-image-url" placeholder="https://..." class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Recipe URL (Optional)</label>
                             <input type="url" id="rec-url" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
@@ -180,8 +239,9 @@
                             
                             <div class="flex flex-wrap gap-2 items-end bg-white border border-gray-200 rounded-md p-3">
                                 <div class="w-full mb-1">
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">Select from Pantry</label>
-                                    <select id="rec-ing-select" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white"></select>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Search & Select Pantry Item</label>
+                                    <input type="text" id="rec-ing-input" list="rec-ing-datalist" placeholder="Type to search pantry..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                                    <datalist id="rec-ing-datalist"></datalist>
                                 </div>
                                 <div class="flex-1 min-w-[70px]">
                                     <label class="block text-xs font-medium text-gray-500 mb-1">Qty</label>
@@ -193,6 +253,7 @@
                                         <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
                                         <option value="ml">ml</option><option value="l">l</option><option value="tsp">tsp</option><option value="tbsp">tbsp</option><option value="fl oz">fl oz</option><option value="cup">cup</option>
                                         <option value="count">count</option><option value="slice">slice</option>
+                                        <option value="clove">clove</option><option value="bulb">bulb</option><option value="bunch">bunch</option><option value="pinch">pinch</option>
                                     </select>
                                 </div>
                                 <button type="button" onclick="addIngredientToDraft()" class="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-md text-sm transition">
@@ -223,7 +284,7 @@
                     <div id="recipes-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                     <div id="recipes-empty" class="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm hidden">
                         <i class="fa-solid fa-utensils text-4xl mb-3 text-gray-300"></i>
-                        <p class="text-gray-500 font-medium">No recipes saved yet.</p>
+                        <p class="text-gray-500 font-medium" id="recipes-empty-msg">No recipes saved yet.</p>
                     </div>
                 </div>
             </div>
@@ -282,8 +343,10 @@
             <span id="toast-msg">Notification</span>
         </div>
 
+        <!-- Single Recipe View Modal -->
         <div id="recipe-modal" class="fixed inset-0 z-50 hidden bg-gray-900 bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden relative">
+                <div class="h-48 w-full bg-cover bg-center hidden" id="modal-recipe-banner"></div>
                 <div class="px-5 py-4 border-b border-gray-200 flex justify-between items-start bg-gray-50">
                     <div>
                         <h3 id="modal-recipe-title" class="text-xl font-bold text-gray-900 leading-tight">Recipe Name</h3>
@@ -321,13 +384,41 @@
                 </div>
             </div>
         </div>
+
+        <!-- FULL SCREEN VISUAL RECIPE PICKER -->
+        <div id="recipe-picker-modal" class="fixed inset-0 z-[60] hidden bg-gray-50 flex flex-col">
+            <div class="bg-white px-4 py-3 border-b border-gray-200 flex justify-between items-center shadow-sm shrink-0">
+                <div class="flex items-center gap-4">
+                    <button type="button" onclick="closeRecipePicker()" class="text-gray-500 hover:text-gray-800 p-2 bg-gray-100 hover:bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-arrow-left text-lg"></i>
+                    </button>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900" id="picker-title">Select a Meal</h3>
+                        <p class="text-xs text-gray-500 font-medium" id="picker-subtitle">Browsing for Monday</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 border-b border-gray-200 shrink-0">
+                <div class="relative max-w-3xl mx-auto">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-gray-400 text-lg"></i>
+                    </div>
+                    <input type="text" id="picker-search" onkeyup="renderPickerRecipes()" placeholder="Search your recipes visually..." class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none shadow-sm text-lg">
+                </div>
+            </div>
+            
+            <div class="p-4 md:p-6 overflow-y-auto custom-scroll flex-grow">
+                <div id="picker-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 max-w-7xl mx-auto"></div>
+            </div>
+        </div>
+
     </main>
 
     <script>
         const SUPABASE_URL = 'https://wqxuofjxocwsgknuoyir.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxeHVvZmp4b2N3c2drbnVveWlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNjE1NzIsImV4cCI6MjEwNjgzNzU3Mn0.oroURnfagQ2HQZFUuF3mdXgrtuOA0b3rDopf3XXYG9Y';
         
-        // Using 'supabaseClient' instead of 'supabase' to prevent naming collision with the CDN library
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let ingredientsData = [];
@@ -338,68 +429,44 @@
         let editingRecipeId = null;
         let activeModalScheduleId = null;
         let draftRecipeIngredients = [];
+        let activeIngredientImageUrl = null;
+        let activeRecipeImageUrl = null;
+        
+        let activePickerDay = null; 
 
         const unitConversions = {
             'g': 1, 'kg': 1000, 'oz': 28.35, 'lb': 453.59,
             'ml': 1, 'l': 1000, 'tsp': 4.93, 'tbsp': 14.79, 'fl oz': 29.57, 'cup': 236.59,
-            'count': 1, 'slice': 1
+            'count': 1, 'slice': 1, 'clove': 1, 'bulb': 1, 'bunch': 1, 'pinch': 1
         };
+
+        function getUnitCategory(u) {
+            if (['g', 'kg', 'oz', 'lb'].includes(u)) return 'weight';
+            if (['ml', 'l', 'tsp', 'tbsp', 'fl oz', 'cup'].includes(u)) return 'volume';
+            if (['count', 'slice', 'clove', 'bulb', 'bunch', 'pinch'].includes(u)) return 'count';
+            return null;
+        }
 
         async function initialLoad() {
             try {
-                const [ingRes, recRes, schedRes] = await Promise.all([
-                    supabaseClient.from('ingredients').select('*'),
-                    supabaseClient.from('recipes').select('*'),
-                    supabaseClient.from('meal_schedule').select('*')
-                ]);
-
-                if(ingRes.error) throw ingRes.error;
-                if(recRes.error) throw recRes.error;
-                if(schedRes.error) throw schedRes.error;
-
-                ingredientsData = ingRes.data || [];
-                recipesData = recRes.data || [];
-                scheduleData = schedRes.data || [];
-
+                await reloadData();
                 document.getElementById('loading-overlay').classList.add('hidden');
                 document.getElementById('sync-status').innerHTML = `<span class="text-brand-600"><i class="fa-solid fa-cloud-bolt mr-1"></i> Live</span>`;
-                
-                triggerRenders();
-                setupRealtime();
             } catch (error) {
-                console.error("Error loading data:", error);
                 document.getElementById('sync-status').innerHTML = `<span class="text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Connection Error</span>`;
                 showToast("Failed to connect to database.", true);
             }
         }
 
-        function setupRealtime() {
-            supabaseClient.channel('custom-all-channel')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredients' }, payload => {
-                    handleRealtimeUpdate('ingredients', payload);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes' }, payload => {
-                    handleRealtimeUpdate('recipes', payload);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_schedule' }, payload => {
-                    handleRealtimeUpdate('meal_schedule', payload);
-                })
-                .subscribe();
-        }
-
-        function handleRealtimeUpdate(table, payload) {
-            let targetArray = table === 'ingredients' ? ingredientsData : 
-                              table === 'recipes' ? recipesData : scheduleData;
-            
-            if (payload.eventType === 'INSERT') {
-                targetArray.push(payload.new);
-            } else if (payload.eventType === 'UPDATE') {
-                const idx = targetArray.findIndex(i => i.id === payload.new.id);
-                if(idx > -1) targetArray[idx] = payload.new;
-            } else if (payload.eventType === 'DELETE') {
-                const idx = targetArray.findIndex(i => i.id === payload.old.id);
-                if(idx > -1) targetArray.splice(idx, 1);
-            }
+        async function reloadData() {
+            const [ingRes, recRes, schedRes] = await Promise.all([
+                supabaseClient.from('ingredients').select('*'),
+                supabaseClient.from('recipes').select('*'),
+                supabaseClient.from('meal_schedule').select('*')
+            ]);
+            if (ingRes.data) ingredientsData = ingRes.data;
+            if (recRes.data) recipesData = recRes.data;
+            if (schedRes.data) scheduleData = schedRes.data;
             triggerRenders();
         }
 
@@ -419,7 +486,6 @@
                 el.classList.add('tab-inactive', 'border-transparent');
                 el.classList.remove('border-b-2');
             });
-            
             document.getElementById(`view-${tabId}`).classList.remove('hidden');
             const btn = document.getElementById(`tab-${tabId}`);
             if(btn) {
@@ -432,31 +498,48 @@
             const toast = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
             toast.className = `fixed bottom-4 right-4 text-white px-4 py-3 rounded-lg shadow-xl transform transition-all duration-300 z-50 flex items-center gap-3 ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
-            
             setTimeout(() => { toast.classList.remove('translate-y-20', 'opacity-0'); }, 10);
             setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 3000);
         }
 
-        function formatCurrency(amount) {
-            return "$" + (isNaN(amount) ? "0.00" : Number(amount).toFixed(2));
+        function formatCurrency(amount) { return "$" + (isNaN(amount) ? "0.00" : Number(amount).toFixed(2)); }
+
+        async function uploadImage(file) {
+            if (!file) return null;
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${crypto.randomUUID()}.${fileExt}`;
+            const { error } = await supabaseClient.storage.from('meal-images').upload(fileName, file);
+            if (error) { showToast("Image upload failed", true); return null; }
+            const { data } = supabaseClient.storage.from('meal-images').getPublicUrl(fileName);
+            return data.publicUrl;
         }
 
-        function calculateItemCost(draftItem) {
-            const baseRate = unitConversions[draftItem.baseUnit] || 1;
-            const reqRate = unitConversions[draftItem.unit] || 1;
-            const pricePerStandard = (draftItem.basePrice / draftItem.baseQty) / baseRate;
-            const totalStandardReq = draftItem.qty * reqRate;
-            return pricePerStandard * totalStandardReq;
+        // SMART COST CALCULATOR WITH SECONDARY MEASUREMENT FALLBACK
+        function calculateItemCost(recipeQty, recipeUnit, totalItemPrice, primaryQty, primaryUnit, secQty, secUnit) {
+            const reqCat = getUnitCategory(recipeUnit);
+            const primCat = getUnitCategory(primaryUnit);
+            const secCat = secUnit ? getUnitCategory(secUnit) : null;
+
+            let matchQty = primaryQty;
+            let matchUnit = primaryUnit;
+
+            // Pivot to secondary sizing if it matches the recipe request better than the primary
+            if (secCat && reqCat === secCat && reqCat !== primCat) {
+                matchQty = secQty;
+                matchUnit = secUnit;
+            }
+
+            const baseRate = unitConversions[matchUnit] || 1;
+            const reqRate = unitConversions[recipeUnit] || 1;
+            const pricePerStandard = (totalItemPrice / matchQty) / baseRate;
+            return pricePerStandard * (recipeQty * reqRate);
         }
 
         function calculateRecipeTotal(recipeItemsJSON) {
             return recipeItemsJSON.reduce((total, item) => {
                 const invItem = ingredientsData.find(i => i.id === item.ingredient_id);
                 if(invItem) {
-                    return total + calculateItemCost({
-                        qty: item.quantity, unit: item.unit,
-                        basePrice: invItem.price, baseQty: invItem.quantity, baseUnit: invItem.unit
-                    });
+                    return total + calculateItemCost(item.quantity, item.unit, invItem.price, invItem.quantity, invItem.unit, invItem.sec_quantity, invItem.sec_unit);
                 }
                 return total;
             }, 0);
@@ -464,14 +547,30 @@
 
         window.handleInventorySubmit = async function(e) {
             e.preventDefault();
+            document.getElementById('inv-submit-btn').disabled = true;
+            document.getElementById('inv-submit-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+            const fileInput = document.getElementById('inv-image-file');
+            const urlInput = document.getElementById('inv-image-url').value.trim();
+            const secQtyVal = parseFloat(document.getElementById('inv-sec-qty').value);
+            const secUnitVal = document.getElementById('inv-sec-unit').value;
+            
+            let finalImageUrl = activeIngredientImageUrl;
+            if (fileInput.files.length > 0) {
+                finalImageUrl = await uploadImage(fileInput.files[0]);
+            } else if (urlInput) {
+                finalImageUrl = urlInput;
+            }
+
             const payload = {
                 name: document.getElementById('inv-name').value.trim(),
                 price: parseFloat(document.getElementById('inv-price').value),
                 quantity: parseFloat(document.getElementById('inv-qty').value),
-                unit: document.getElementById('inv-unit').value
+                unit: document.getElementById('inv-unit').value,
+                sec_quantity: !isNaN(secQtyVal) ? secQtyVal : null,
+                sec_unit: secUnitVal || null,
+                image_url: finalImageUrl
             };
-
-            if(!payload.name || isNaN(payload.price) || isNaN(payload.quantity)) return;
 
             try {
                 if(editingIngredientId) {
@@ -481,10 +580,9 @@
                     await supabaseClient.from('ingredients').insert([payload]);
                     showToast("Ingredient added");
                 }
+                await reloadData();
                 cancelEditInventory();
-            } catch(err) {
-                showToast("Error saving ingredient", true);
-            }
+            } catch(err) { showToast("Error saving ingredient", true); document.getElementById('inv-submit-btn').disabled = false; }
         };
 
         window.editIngredient = function(id) {
@@ -495,6 +593,12 @@
             document.getElementById('inv-price').value = ing.price;
             document.getElementById('inv-qty').value = ing.quantity;
             document.getElementById('inv-unit').value = ing.unit;
+            document.getElementById('inv-sec-qty').value = ing.sec_quantity || '';
+            document.getElementById('inv-sec-unit').value = ing.sec_unit || '';
+
+            activeIngredientImageUrl = ing.image_url || null;
+            document.getElementById('inv-image-file').value = '';
+            document.getElementById('inv-image-url').value = activeIngredientImageUrl;
             
             editingIngredientId = id;
             document.getElementById('inv-form-title').innerText = "Edit Ingredient";
@@ -505,48 +609,67 @@
 
         window.cancelEditInventory = function() {
             editingIngredientId = null;
+            activeIngredientImageUrl = null;
             document.getElementById('form-inventory').reset();
+            document.getElementById('inv-image-file').value = '';
+            document.getElementById('inv-image-url').value = '';
             document.getElementById('inv-form-title').innerText = "Add Ingredient";
             document.getElementById('inv-submit-btn').innerText = "Save to Pantry";
+            document.getElementById('inv-submit-btn').disabled = false;
             document.getElementById('inv-cancel-btn').classList.add('hidden');
         };
 
         window.deleteIngredient = async function(id) {
-            if(!confirm("Are you sure you want to delete this ingredient? Recipes using it might lose cost accuracy.")) return;
-            try {
-                await supabaseClient.from('ingredients').delete().eq('id', id);
-                showToast("Ingredient removed");
+            if(!confirm("Are you sure you want to delete this ingredient?")) return;
+            try { 
+                await supabaseClient.from('ingredients').delete().eq('id', id); 
+                await reloadData();
+                showToast("Ingredient removed"); 
             } catch(err) { showToast("Failed to delete", true); }
         };
 
         function renderInventory() {
             const grid = document.getElementById('inventory-grid');
             const emptyState = document.getElementById('inventory-empty');
+            const searchInput = document.getElementById('inventory-search');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            
             grid.innerHTML = '';
             
-            if(ingredientsData.length === 0) {
+            const filteredIngredients = ingredientsData.filter(ing => 
+                ing.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if(filteredIngredients.length === 0) {
+                const emptyMsg = emptyState.querySelector('p');
+                if (emptyMsg) {
+                    emptyMsg.innerText = searchTerm ? "No ingredients match your search." : "Your pantry is empty.";
+                }
                 emptyState.classList.remove('hidden');
             } else {
                 emptyState.classList.add('hidden');
-                const sorted = [...ingredientsData].sort((a,b) => a.name.localeCompare(b.name));
+                const sorted = [...filteredIngredients].sort((a,b) => a.name.localeCompare(b.name));
                 
                 sorted.forEach(ing => {
+                    const imgHtml = ing.image_url 
+                        ? `<img src="${ing.image_url}" class="w-16 h-16 object-cover rounded-lg border border-gray-200 shrink-0">` 
+                        : `<div class="w-16 h-16 rounded-lg border border-gray-200 shrink-0 img-placeholder"><i class="fa-solid fa-basket-shopping text-xl"></i></div>`;
+                    
+                    const secHtml = (ing.sec_quantity && ing.sec_unit) ? `<span class="text-xs text-gray-400 font-medium ml-1">(&asymp; ${ing.sec_quantity} ${ing.sec_unit})</span>` : '';
+
                     const card = document.createElement('div');
                     card.className = 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col h-full';
                     card.innerHTML = `
-                        <div class="mb-3 flex-grow">
-                            <h4 class="font-bold text-gray-900 text-lg leading-tight mb-1">${ing.name}</h4>
-                            <p class="text-sm text-gray-600 bg-gray-50 inline-block px-2 py-1 rounded border border-gray-100">
-                                ${formatCurrency(ing.price)} for ${ing.quantity} ${ing.unit}
-                            </p>
+                        <div class="flex gap-4 mb-3 flex-grow">
+                            ${imgHtml}
+                            <div class="flex-grow">
+                                <h4 class="font-bold text-gray-900 text-lg leading-tight mb-1">${ing.name}</h4>
+                                <p class="text-sm text-gray-600 bg-gray-50 inline-block px-2 py-1 rounded border border-gray-100">${formatCurrency(ing.price)} for ${ing.quantity} ${ing.unit} ${secHtml}</p>
+                            </div>
                         </div>
                         <div class="mt-auto pt-3 border-t border-gray-100 flex gap-2 w-full">
-                            <button onclick="editIngredient('${ing.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-pen-to-square"></i> Edit
-                            </button>
-                            <button onclick="deleteIngredient('${ing.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-trash-can"></i> Delete
-                            </button>
+                            <button onclick="editIngredient('${ing.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                            <button onclick="deleteIngredient('${ing.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1"><i class="fa-solid fa-trash-can"></i> Delete</button>
                         </div>
                     `;
                     grid.appendChild(card);
@@ -555,34 +678,32 @@
         }
 
         function populateRecipeIngredientDropdown() {
-            const select = document.getElementById('rec-ing-select');
-            select.innerHTML = '<option value="" disabled selected>-- Select --</option>';
+            const datalist = document.getElementById('rec-ing-datalist');
+            datalist.innerHTML = '';
             const sorted = [...ingredientsData].sort((a,b) => a.name.localeCompare(b.name));
             sorted.forEach(ing => {
                 const opt = document.createElement('option');
-                opt.value = ing.id;
-                opt.textContent = `${ing.name} (${formatCurrency(ing.price)}/${ing.quantity}${ing.unit})`;
-                select.appendChild(opt);
+                opt.value = ing.name;
+                datalist.appendChild(opt);
             });
         }
 
         window.addIngredientToDraft = function() {
-            const ingId = document.getElementById('rec-ing-select').value;
+            const inputVal = document.getElementById('rec-ing-input').value.trim();
             const qty = parseFloat(document.getElementById('rec-ing-qty').value);
             const unit = document.getElementById('rec-ing-unit').value;
 
-            if(!ingId || isNaN(qty) || qty <= 0) return showToast("Select ingredient and valid quantity", true);
-
-            const ingInfo = ingredientsData.find(i => i.id === ingId);
-            if(!ingInfo) return;
+            if(!inputVal || isNaN(qty) || qty <= 0) return showToast("Select an ingredient and valid quantity", true);
+            
+            const ingInfo = ingredientsData.find(i => i.name.toLowerCase() === inputVal.toLowerCase());
+            if(!ingInfo) return showToast("Ingredient not found in Pantry", true);
 
             draftRecipeIngredients.push({
-                tempId: crypto.randomUUID(),
-                ingredient_id: ingId, name: ingInfo.name, quantity: qty, unit: unit,
-                basePrice: ingInfo.price, baseQty: ingInfo.quantity, baseUnit: ingInfo.unit
+                tempId: crypto.randomUUID(), ingredient_id: ingInfo.id, name: ingInfo.name, quantity: qty, unit: unit,
+                basePrice: ingInfo.price, baseQty: ingInfo.quantity, baseUnit: ingInfo.unit, secQty: ingInfo.sec_quantity, secUnit: ingInfo.sec_unit
             });
 
-            document.getElementById('rec-ing-select').value = '';
+            document.getElementById('rec-ing-input').value = '';
             document.getElementById('rec-ing-qty').value = '1';
             renderDraftIngredients(); updateDraftCost();
         };
@@ -597,22 +718,16 @@
             const emptyMsg = document.getElementById('rec-ing-empty');
             container.querySelectorAll('.draft-row').forEach(e => e.remove());
 
-            if(draftRecipeIngredients.length === 0) {
-                emptyMsg.style.display = 'block';
-            } else {
+            if(draftRecipeIngredients.length === 0) emptyMsg.style.display = 'block';
+            else {
                 emptyMsg.style.display = 'none';
                 draftRecipeIngredients.forEach(item => {
-                    const cost = calculateItemCost({qty: item.quantity, unit: item.unit, basePrice: item.basePrice, baseQty: item.baseQty, baseUnit: item.baseUnit});
+                    const cost = calculateItemCost(item.quantity, item.unit, item.basePrice, item.baseQty, item.baseUnit, item.secQty, item.secUnit);
                     const div = document.createElement('div');
                     div.className = 'draft-row flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 text-sm shadow-sm mb-1';
                     div.innerHTML = `
-                        <div class="flex flex-col">
-                            <span class="font-bold text-gray-800">${item.name}</span>
-                            <span class="text-gray-500 text-xs">${item.quantity} ${item.unit} &middot; <span class="text-brand-600 font-semibold">${formatCurrency(cost)}</span></span>
-                        </div>
-                        <button type="button" onclick="removeDraftIngredient('${item.tempId}')" class="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
+                        <div class="flex flex-col"><span class="font-bold text-gray-800">${item.name}</span><span class="text-gray-500 text-xs">${item.quantity} ${item.unit} &middot; <span class="text-brand-600 font-semibold">${formatCurrency(cost)}</span></span></div>
+                        <button type="button" onclick="removeDraftIngredient('${item.tempId}')" class="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md"><i class="fa-solid fa-xmark"></i></button>
                     `;
                     container.appendChild(div);
                 });
@@ -620,20 +735,34 @@
         }
 
         function updateDraftCost() {
-            const total = draftRecipeIngredients.reduce((sum, item) => sum + calculateItemCost({qty: item.quantity, unit: item.unit, basePrice: item.basePrice, baseQty: item.baseQty, baseUnit: item.baseUnit}), 0);
+            const total = draftRecipeIngredients.reduce((sum, item) => sum + calculateItemCost(item.quantity, item.unit, item.basePrice, item.baseQty, item.baseUnit, item.secQty, item.secUnit), 0);
             document.getElementById('draft-recipe-cost').innerText = formatCurrency(total);
         }
 
         window.handleRecipeSubmit = async function(e) {
             e.preventDefault();
-            const name = document.getElementById('rec-name').value.trim();
-            const url = document.getElementById('rec-url').value.trim();
-            const instructions = document.getElementById('rec-instructions').value.trim();
+            if(draftRecipeIngredients.length === 0) return showToast("Ingredients required", true);
+            
+            document.getElementById('rec-submit-btn').disabled = true;
+            document.getElementById('rec-submit-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
-            if(!name || draftRecipeIngredients.length === 0) return showToast("Name and ingredients required", true);
+            const fileInput = document.getElementById('rec-image-file');
+            const urlInput = document.getElementById('rec-image-url').value.trim();
+            
+            let finalImageUrl = activeRecipeImageUrl;
+            if (fileInput.files.length > 0) {
+                finalImageUrl = await uploadImage(fileInput.files[0]);
+            } else if (urlInput) {
+                finalImageUrl = urlInput;
+            }
 
-            const itemsPayload = draftRecipeIngredients.map(i => ({ ingredient_id: i.ingredient_id, quantity: i.quantity, unit: i.unit }));
-            const payload = { name, url, instructions, items: itemsPayload };
+            const payload = { 
+                name: document.getElementById('rec-name').value.trim(), 
+                url: document.getElementById('rec-url').value.trim(), 
+                instructions: document.getElementById('rec-instructions').value.trim(), 
+                image_url: finalImageUrl,
+                items: draftRecipeIngredients.map(i => ({ ingredient_id: i.ingredient_id, quantity: i.quantity, unit: i.unit })) 
+            };
 
             try {
                 if(editingRecipeId) {
@@ -643,8 +772,9 @@
                     await supabaseClient.from('recipes').insert([payload]);
                     showToast("Recipe saved!");
                 }
+                await reloadData();
                 cancelEditRecipe();
-            } catch (err) { showToast("Failed to save recipe", true); }
+            } catch (err) { showToast("Failed to save recipe", true); document.getElementById('rec-submit-btn').disabled = false; }
         };
 
         window.editRecipe = function(id) {
@@ -654,13 +784,17 @@
             document.getElementById('rec-name').value = rec.name;
             document.getElementById('rec-url').value = rec.url || "";
             document.getElementById('rec-instructions').value = rec.instructions || "";
+            activeRecipeImageUrl = rec.image_url || null;
+            document.getElementById('rec-image-file').value = '';
+            document.getElementById('rec-image-url').value = activeRecipeImageUrl;
             
             draftRecipeIngredients = rec.items.map(i => {
                 const invInfo = ingredientsData.find(inv => inv.id === i.ingredient_id);
                 return {
                     tempId: crypto.randomUUID(), ingredient_id: i.ingredient_id,
                     name: invInfo ? invInfo.name : "Unknown", quantity: i.quantity, unit: i.unit,
-                    basePrice: invInfo ? invInfo.price : 0, baseQty: invInfo ? invInfo.quantity : 1, baseUnit: invInfo ? invInfo.unit : i.unit
+                    basePrice: invInfo ? invInfo.price : 0, baseQty: invInfo ? invInfo.quantity : 1, baseUnit: invInfo ? invInfo.unit : i.unit,
+                    secQty: invInfo ? invInfo.sec_quantity : null, secUnit: invInfo ? invInfo.sec_unit : null
                 };
             });
 
@@ -674,36 +808,45 @@
 
         window.cancelEditRecipe = function() {
             editingRecipeId = null;
+            activeRecipeImageUrl = null;
             document.getElementById('form-recipe').reset();
+            document.getElementById('rec-image-file').value = '';
+            document.getElementById('rec-image-url').value = '';
             draftRecipeIngredients = [];
             renderDraftIngredients(); updateDraftCost();
             document.getElementById('rec-form-title').innerText = "Create Recipe";
             document.getElementById('rec-submit-btn').innerText = "Save Recipe";
+            document.getElementById('rec-submit-btn').disabled = false;
             document.getElementById('btn-new-recipe').classList.add('hidden');
         };
 
         window.deleteRecipe = async function(id) {
-            if(!confirm("Delete this recipe? Note: Existing scheduled meals using this recipe will be preserved.")) return;
-            try {
-                await supabaseClient.from('recipes').delete().eq('id', id);
-                showToast("Recipe deleted");
+            if(!confirm("Delete this recipe?")) return;
+            try { 
+                await supabaseClient.from('recipes').delete().eq('id', id); 
+                await reloadData();
+                showToast("Recipe deleted"); 
             } catch(err) { showToast("Failed to delete", true); }
         };
 
-        function renderRecipes() {
+        window.renderRecipes = function() {
             const grid = document.getElementById('recipes-grid');
             const emptyEl = document.getElementById('recipes-empty');
+            const emptyMsg = document.getElementById('recipes-empty-msg');
+            const searchTerm = document.getElementById('recipe-search').value.toLowerCase();
             grid.innerHTML = '';
             
-            if(recipesData.length === 0) {
+            const filteredRecipes = recipesData.filter(r => r.name.toLowerCase().includes(searchTerm));
+
+            if(filteredRecipes.length === 0) {
+                emptyMsg.innerText = searchTerm ? "No recipes match your search." : "No recipes saved yet.";
                 emptyEl.classList.remove('hidden');
             } else {
                 emptyEl.classList.add('hidden');
-                
-                recipesData.forEach(rec => {
+                filteredRecipes.forEach(rec => {
                     const currentCost = calculateRecipeTotal(rec.items);
                     const card = document.createElement('div');
-                    card.className = 'bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col h-full';
+                    card.className = 'bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-full';
                     
                     const ingsList = rec.items.map(i => {
                         const invMatch = ingredientsData.find(inv => inv.id === i.ingredient_id);
@@ -711,30 +854,89 @@
                     }).join(', ');
 
                     let urlHtml = rec.url ? `<a href="${rec.url}" target="_blank" class="text-xs text-brand-600 hover:text-brand-800 mt-2 inline-flex items-center gap-1 font-medium bg-brand-50 self-start px-2 py-1 rounded border border-brand-100"><i class="fa-solid fa-arrow-up-right-from-square"></i> Web Link</a>` : '';
+                    let imgHtml = rec.image_url ? `<img src="${rec.image_url}" class="w-full h-32 object-cover border-b border-gray-100">` : `<div class="w-full h-32 border-b border-gray-100 img-placeholder"><i class="fa-solid fa-utensils text-3xl"></i></div>`;
 
                     card.innerHTML = `
-                        <div class="flex justify-between items-start mb-2 gap-3">
-                            <h4 class="font-bold text-gray-900 text-lg leading-tight break-words">${rec.name}</h4>
-                            <span class="bg-brand-100 text-brand-800 font-bold px-2 py-1 rounded text-sm shrink-0 border border-brand-200">${formatCurrency(currentCost)}</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-2 leading-relaxed flex-grow"><span class="font-semibold text-gray-700">Contains:</span> ${ingsList}</p>
-                        ${urlHtml}
-                        
-                        <div class="mt-4 pt-3 border-t border-gray-100 flex gap-2 w-full">
-                            <button onclick="editRecipe('${rec.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-pen-to-square"></i> Edit
-                            </button>
-                            <button onclick="deleteRecipe('${rec.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-trash-can"></i> Delete
-                            </button>
+                        ${imgHtml}
+                        <div class="p-4 flex flex-col flex-grow">
+                            <div class="flex justify-between items-start mb-2 gap-3">
+                                <h4 class="font-bold text-gray-900 text-lg leading-tight break-words">${rec.name}</h4>
+                                <span class="bg-brand-100 text-brand-800 font-bold px-2 py-1 rounded text-sm shrink-0 border border-brand-200">${formatCurrency(currentCost)}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-2 leading-relaxed flex-grow line-clamp-2"><span class="font-semibold text-gray-700">Contains:</span> ${ingsList}</p>
+                            ${urlHtml}
+                            <div class="mt-4 pt-3 border-t border-gray-100 flex gap-2 w-full">
+                                <button onclick="editRecipe('${rec.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                                <button onclick="deleteRecipe('${rec.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                            </div>
                         </div>
                     `;
                     grid.appendChild(card);
                 });
             }
-        }
+        };
 
-        const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        window.openRecipePicker = function(dayStr) {
+            activePickerDay = dayStr;
+            document.getElementById('picker-subtitle').innerText = `Browsing for ${dayStr}`;
+            document.getElementById('picker-search').value = '';
+            renderPickerRecipes();
+            document.getElementById('recipe-picker-modal').classList.remove('hidden');
+        };
+
+        window.closeRecipePicker = function() {
+            activePickerDay = null;
+            document.getElementById('recipe-picker-modal').classList.add('hidden');
+        };
+
+        window.renderPickerRecipes = function() {
+            const grid = document.getElementById('picker-grid');
+            const searchTerm = document.getElementById('picker-search').value.toLowerCase();
+            grid.innerHTML = '';
+            
+            const filteredRecipes = recipesData.filter(r => r.name.toLowerCase().includes(searchTerm));
+
+            if(filteredRecipes.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500 font-medium">No recipes match your search.</div>`;
+            } else {
+                filteredRecipes.forEach(rec => {
+                    const currentCost = calculateRecipeTotal(rec.items);
+                    const imgHtml = rec.image_url ? `<img src="${rec.image_url}" class="w-full h-40 object-cover border-b border-gray-100">` : `<div class="w-full h-40 border-b border-gray-100 img-placeholder"><i class="fa-solid fa-utensils text-4xl"></i></div>`;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer group flex flex-col';
+                    card.onclick = () => selectRecipeFromPicker(rec.id);
+                    card.innerHTML = `
+                        <div class="relative">
+                            ${imgHtml}
+                            <div class="absolute inset-0 bg-brand-700 bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                                <span class="bg-white text-brand-700 font-bold px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-md transform translate-y-2 group-hover:translate-y-0">Select Meal</span>
+                            </div>
+                        </div>
+                        <div class="p-3">
+                            <h4 class="font-bold text-gray-900 text-sm leading-tight mb-1 truncate">${rec.name}</h4>
+                            <span class="text-xs font-bold text-gray-500">${formatCurrency(currentCost)} / batch</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        };
+
+        window.selectRecipeFromPicker = function(recipeId) {
+            if(activePickerDay) {
+                const selectEl = document.getElementById(`sched-select-${activePickerDay}`);
+                if(selectEl) selectEl.value = recipeId;
+            }
+            closeRecipePicker();
+        };
+
+        window.handleScheduleSelectChange = function(e, dayStr) {
+            if (e.target.value === 'BROWSE') {
+                e.target.value = ''; 
+                openRecipePicker(dayStr);
+            }
+        };
 
         window.addToSchedule = async function(dayStr) {
             const selectId = `sched-select-${dayStr}`;
@@ -742,8 +944,7 @@
             const recipeId = document.getElementById(selectId).value;
             const batchSize = parseFloat(document.getElementById(batchId).value) || 1;
             
-            if(!recipeId) return;
-
+            if(!recipeId || recipeId === 'BROWSE') return;
             const rec = recipesData.find(r => r.id === recipeId);
             if(!rec) return;
 
@@ -754,21 +955,27 @@
                     recipe_id: recipeId, recipe_name: rec.name, day_of_week: dayStr,
                     batch_size: batchSize, estimated_cost: estimated_cost, completed: false
                 }]);
+                await reloadData();
                 showToast("Added to schedule");
             } catch(err) { showToast("Failed to schedule", true); }
         };
 
         window.removeFromSchedule = async function(e, docId) {
             e.stopPropagation();
-            try { await supabaseClient.from('meal_schedule').delete().eq('id', docId); } catch(err) {}
+            try { 
+                await supabaseClient.from('meal_schedule').delete().eq('id', docId); 
+                await reloadData();
+            } catch(err) {}
         };
 
         function renderScheduler() {
             const grid = document.getElementById('scheduler-grid');
             grid.innerHTML = '';
             let weeklyTotal = 0;
+            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
             let recipeOptionsHtml = '<option value="" disabled selected>Add Meal...</option>';
+            recipeOptionsHtml += '<option value="BROWSE" class="font-bold text-brand-700">??? Browse Photos...</option>';
             recipesData.forEach(r => { recipeOptionsHtml += `<option value="${r.id}">${r.name}</option>`; });
 
             daysOfWeek.forEach(day => {
@@ -780,18 +987,18 @@
                 } else {
                     dayItems.forEach(item => {
                         weeklyTotal += item.estimated_cost;
+                        const rec = recipesData.find(r => r.id === item.recipe_id);
+                        const imgHtml = (rec && rec.image_url) ? `<img src="${rec.image_url}" class="w-8 h-8 rounded object-cover mr-2 shrink-0">` : `<div class="w-8 h-8 rounded mr-2 shrink-0 img-placeholder text-xs"><i class="fa-solid fa-utensils"></i></div>`;
                         const batchBadge = item.batch_size > 1 ? `<span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold ml-1.5">${item.batch_size}x</span>` : '';
 
                         itemsHtml += `
-                            <div onclick="openRecipeModal('${item.id}')" class="bg-white border border-gray-200 rounded-lg p-2.5 mb-2 flex justify-between items-center text-sm shadow-sm cursor-pointer transition-colors hover:border-brand-300 hover:shadow-md group">
-                                <div class="flex-grow truncate pr-2 font-medium text-gray-800 flex items-center">
-                                    ${item.recipe_name} ${batchBadge}
+                            <div onclick="openRecipeModal('${item.id}')" class="bg-white border border-gray-200 rounded-lg p-2 mb-2 flex justify-between items-center text-sm shadow-sm cursor-pointer transition-colors hover:border-brand-300 hover:shadow-md group">
+                                <div class="flex items-center truncate pr-2 font-medium text-gray-800">
+                                    ${imgHtml} <span class="truncate">${item.recipe_name}</span> ${batchBadge}
                                 </div>
                                 <div class="flex items-center gap-2 flex-shrink-0">
                                     <span class="text-xs text-gray-600 font-bold bg-gray-100 px-2 py-0.5 rounded">${formatCurrency(item.estimated_cost)}</span>
-                                    <button onclick="removeFromSchedule(event, '${item.id}')" class="text-gray-400 hover:text-red-600 transition-colors p-1 bg-gray-50 hover:bg-red-50 rounded">
-                                        <i class="fa-solid fa-xmark"></i>
-                                    </button>
+                                    <button onclick="removeFromSchedule(event, '${item.id}')" class="text-gray-400 hover:text-red-600 transition-colors p-1 bg-gray-50 hover:bg-red-50 rounded"><i class="fa-solid fa-xmark"></i></button>
                                 </div>
                             </div>
                         `;
@@ -809,7 +1016,7 @@
                     </div>
                     <div class="mt-auto pt-3 border-t border-gray-200">
                         <div class="flex flex-col gap-2">
-                            <select id="sched-select-${day}" class="w-full px-2 py-2 text-sm border border-gray-300 rounded-md bg-white outline-none focus:ring-2 focus:ring-brand-500 truncate">
+                            <select id="sched-select-${day}" onchange="handleScheduleSelectChange(event, '${day}')" class="w-full px-2 py-2 text-sm border border-gray-300 rounded-md bg-white outline-none focus:ring-2 focus:ring-brand-500 truncate">
                                 ${recipeOptionsHtml}
                             </select>
                             <div class="flex gap-2">
@@ -817,9 +1024,7 @@
                                     <option value="1">1x</option><option value="2">2x</option>
                                     <option value="3">3x</option><option value="4">4x</option>
                                 </select>
-                                <button onclick="addToSchedule('${day}')" class="flex-grow bg-white hover:bg-gray-100 text-gray-800 py-2 rounded-md transition text-sm font-semibold border border-gray-300 shadow-sm">
-                                    Add
-                                </button>
+                                <button onclick="addToSchedule('${day}')" class="flex-grow bg-white hover:bg-gray-100 text-gray-800 py-2 rounded-md transition text-sm font-semibold border border-gray-300 shadow-sm">Add</button>
                             </div>
                         </div>
                     </div>
@@ -835,9 +1040,13 @@
             if(!schedItem) return;
             
             const recipe = recipesData.find(r => r.id === schedItem.recipe_id);
-            const instText = recipe ? (recipe.instructions || "No instructions provided.") : "Original recipe was deleted. Instructions unavailable.";
-
             activeModalScheduleId = scheduleId;
+
+            const banner = document.getElementById('modal-recipe-banner');
+            if(recipe && recipe.image_url) {
+                banner.style.backgroundImage = `url('${recipe.image_url}')`;
+                banner.classList.remove('hidden');
+            } else { banner.classList.add('hidden'); }
 
             document.getElementById('modal-recipe-title').innerText = schedItem.recipe_name;
             document.getElementById('modal-recipe-batch').innerText = `${schedItem.batch_size}x Batch`;
@@ -848,11 +1057,9 @@
             if(recipe && recipe.url) {
                 urlLink.href = recipe.url;
                 urlContainer.classList.remove('hidden');
-            } else {
-                urlContainer.classList.add('hidden');
-            }
+            } else { urlContainer.classList.add('hidden'); }
 
-            document.getElementById('modal-instructions').innerText = instText;
+            document.getElementById('modal-instructions').innerText = recipe ? (recipe.instructions || "No instructions provided.") : "Original recipe deleted.";
 
             const ingList = document.getElementById('modal-ingredients-list');
             ingList.innerHTML = '';
@@ -862,42 +1069,33 @@
                     const invInfo = ingredientsData.find(inv => inv.id === i.ingredient_id);
                     const name = invInfo ? invInfo.name : "Unknown Ingredient";
                     const scaledQty = parseFloat((i.quantity * schedItem.batch_size).toFixed(2)).toString();
+                    const invImg = (invInfo && invInfo.image_url) ? `<img src="${invInfo.image_url}" class="w-8 h-8 rounded object-cover">` : `<div class="w-8 h-8 rounded img-placeholder text-xs"><i class="fa-solid fa-basket-shopping"></i></div>`;
 
                     const li = document.createElement('li');
-                    li.className = "flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg text-sm shadow-sm";
-                    li.innerHTML = `<span class="text-gray-800 font-medium">${name}</span><span class="text-brand-700 bg-brand-50 border border-brand-100 px-2.5 py-1 rounded-md font-bold">${scaledQty} ${i.unit}</span>`;
+                    li.className = "flex justify-between items-center bg-white border border-gray-100 p-2 rounded-lg text-sm shadow-sm";
+                    li.innerHTML = `<div class="flex items-center gap-3">${invImg}<span class="text-gray-800 font-medium">${name}</span></div><span class="text-brand-700 bg-brand-50 border border-brand-100 px-2.5 py-1 rounded-md font-bold">${scaledQty} ${i.unit}</span>`;
                     ingList.appendChild(li);
                 });
-            } else {
-                ingList.innerHTML = '<li class="text-sm text-red-500 italic">Ingredient data unavailable.</li>';
             }
-
             document.getElementById('recipe-modal').classList.remove('hidden');
         };
 
-        window.closeRecipeModal = function() {
-            activeModalScheduleId = null;
-            document.getElementById('recipe-modal').classList.add('hidden');
-        };
+        window.closeRecipeModal = function() { activeModalScheduleId = null; document.getElementById('recipe-modal').classList.add('hidden'); };
 
         document.getElementById('modal-complete-btn').addEventListener('click', async () => {
             if(!activeModalScheduleId) return;
             try {
-                await supabaseClient.from('meal_schedule').update({
-                    completed: true, completed_at: new Date().toISOString()
-                }).eq('id', activeModalScheduleId);
-                closeRecipeModal();
-                showToast("Meal completed & recorded!");
-            } catch(err) { showToast("Failed to complete meal", true); }
+                await supabaseClient.from('meal_schedule').update({ completed: true, completed_at: new Date().toISOString() }).eq('id', activeModalScheduleId);
+                await reloadData();
+                closeRecipeModal(); showToast("Meal completed & recorded!");
+            } catch(err) { showToast("Failed to complete", true); }
         });
 
         function renderHistory() {
             const listEl = document.getElementById('history-list');
             const emptyEl = document.getElementById('history-empty');
-            
             const now = new Date();
-            const currMonth = now.getMonth();
-            const currYear = now.getFullYear();
+            const currMonth = now.getMonth(); const currYear = now.getFullYear();
 
             const thisMonthHistory = scheduleData.filter(item => {
                 if(!item.completed || !item.completed_at) return false;
@@ -919,7 +1117,6 @@
                     monthTotal += item.estimated_cost;
                     const d = new Date(item.completed_at);
                     const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition-colors";
                     tr.innerHTML = `
@@ -935,7 +1132,6 @@
         }
 
         initialLoad();
-
     </script>
 </body>
 </html>
