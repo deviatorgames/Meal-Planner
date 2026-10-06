@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shared Meal Tracker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .tab-active { border-bottom: 2px solid #16a34a; color: #16a34a; font-weight: 600; }
+        .tab-inactive { color: #64748b; }
+        .tab-inactive:hover { color: #334155; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #16a34a;
+            border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        input, select, textarea { font-size: 16px !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap justify-between items-center py-3">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-seedling text-brand-600 text-2xl mr-3"></i>
+                    <span class="font-bold text-xl text-gray-900 tracking-tight">Meal Tracker</span>
+                </div>
+                <div class="flex items-center text-sm font-medium" id="sync-status">
+                    <span class="text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Connecting...</span>
+                </div>
+            </div>
+            <div class="flex space-x-6 sm:space-x-8 overflow-x-auto custom-scroll" id="tabs-container">
+                <button onclick="switchTab('inventory')" id="tab-inventory" class="tab-active whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
+                    <i class="fa-solid fa-boxes-stacked mr-2"></i>Pantry
+                </button>
+                <button onclick="switchTab('recipes')" id="tab-recipes" class="tab-inactive whitespace-nowrap py-3 px-1 border-b-2 border-transparent font-medium text-sm transition-colors">
+                    <i class="fa-solid fa-book-open mr-2"></i>Recipes
+                </button>
+                <button onclick="switchTab('scheduler')" id="tab-scheduler" class="tab-inactive whitespace-nowrap py-3 px-1 border-b-2 border-transparent font-medium text-sm transition-colors">
+                    <i class="fa-regular fa-calendar-days mr-2"></i>Scheduler
+                </button>
+                <button onclick="switchTab('history')" id="tab-history" class="tab-inactive whitespace-nowrap py-3 px-1 border-b-2 border-transparent font-medium text-sm transition-colors">
+                    <i class="fa-solid fa-clock-rotate-left mr-2"></i>History
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 relative">
+        
+        <div id="loading-overlay" class="absolute inset-0 bg-gray-50 bg-opacity-90 z-10 flex flex-col items-center justify-center rounded-lg">
+            <div class="loader mb-4"></div>
+            <p class="text-gray-600 font-medium">Syncing with cloud...</p>
+        </div>
+
+        <div id="view-inventory" class="tab-content block">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Pantry Inventory</h2>
+                <p class="text-sm text-gray-500 mt-1">Manage ingredients and set package pricing.</p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full lg:w-1/3 h-fit lg:sticky lg:top-32">
+                    <h3 id="inv-form-title" class="text-lg font-semibold text-gray-800 mb-4">Add Ingredient</h3>
+                    <form id="form-inventory" onsubmit="handleInventorySubmit(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" id="inv-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div class="mb-4 grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Total Price ($)</label>
+                                <input type="number" id="inv-price" required min="0.01" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Pkg Qty</label>
+                                <input type="number" id="inv-qty" required min="0.01" step="0.01" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                        </div>
+                        <div class="mb-5">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Base Unit</label>
+                            <select id="inv-unit" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                                <optgroup label="Weight">
+                                    <option value="g">Grams (g)</option>
+                                    <option value="kg">Kilograms (kg)</option>
+                                    <option value="oz">Ounces (oz)</option>
+                                    <option value="lb">Pounds (lb)</option>
+                                </optgroup>
+                                <optgroup label="Volume">
+                                    <option value="ml">Milliliters (ml)</option>
+                                    <option value="l">Liters (l)</option>
+                                    <option value="tsp">Teaspoons (tsp)</option>
+                                    <option value="tbsp">Tablespoons (tbsp)</option>
+                                    <option value="fl oz">Fluid Oz (fl oz)</option>
+                                    <option value="cup">Cups</option>
+                                </optgroup>
+                                <optgroup label="Count">
+                                    <option value="count">Count / Piece</option>
+                                    <option value="slice">Slice</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" id="inv-submit-btn" class="flex-grow bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                Save to Pantry
+                            </button>
+                            <button type="button" id="inv-cancel-btn" onclick="cancelEditInventory()" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-md transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="w-full lg:w-2/3">
+                    <div id="inventory-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+                    <div id="inventory-empty" class="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm hidden">
+                        <i class="fa-solid fa-basket-shopping text-4xl mb-3 text-gray-300"></i>
+                        <p class="text-gray-500 font-medium">Your pantry is empty.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-recipes" class="tab-content hidden">
+            <div class="mb-6 flex flex-wrap justify-between items-end gap-3">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Recipes</h2>
+                    <p class="text-sm text-gray-500 mt-1">Build meals and calculate costs dynamically.</p>
+                </div>
+                <button onclick="cancelEditRecipe()" id="btn-new-recipe" class="hidden bg-brand-100 text-brand-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-200 transition shadow-sm">
+                    <i class="fa-solid fa-plus mr-1"></i> New Recipe
+                </button>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 w-full lg:w-5/12 h-fit lg:sticky lg:top-32">
+                    <h3 id="rec-form-title" class="text-lg font-semibold text-gray-800 mb-4">Create Recipe</h3>
+                    <form id="form-recipe" onsubmit="handleRecipeSubmit(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                            <input type="text" id="rec-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Recipe URL (Optional)</label>
+                            <input type="url" id="rec-url" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ingredients</label>
+                            <div id="recipe-ingredients-container" class="space-y-2 mb-3 bg-gray-50 p-3 rounded-md border border-gray-200 min-h-[60px]">
+                                <p id="rec-ing-empty" class="text-xs text-gray-500 text-center italic">No ingredients added.</p>
+                            </div>
+                            
+                            <div class="flex flex-wrap gap-2 items-end bg-white border border-gray-200 rounded-md p-3">
+                                <div class="w-full mb-1">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Select from Pantry</label>
+                                    <select id="rec-ing-select" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white"></select>
+                                </div>
+                                <div class="flex-1 min-w-[70px]">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Qty</label>
+                                    <input type="number" id="rec-ing-qty" min="0.01" step="0.01" value="1" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
+                                </div>
+                                <div class="flex-1 min-w-[80px]">
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">Unit</label>
+                                    <select id="rec-ing-unit" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white">
+                                        <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
+                                        <option value="ml">ml</option><option value="l">l</option><option value="tsp">tsp</option><option value="tbsp">tbsp</option><option value="fl oz">fl oz</option><option value="cup">cup</option>
+                                        <option value="count">count</option><option value="slice">slice</option>
+                                    </select>
+                                </div>
+                                <button type="button" onclick="addIngredientToDraft()" class="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-md text-sm transition">
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
+                            <textarea id="rec-instructions" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none custom-scroll" placeholder="Step-by-step instructions..."></textarea>
+                        </div>
+                        
+                        <div class="bg-brand-50 border border-brand-100 rounded-md p-3 mb-4 flex justify-between items-center">
+                            <span class="text-sm font-semibold text-brand-700">Estimated Base Cost:</span>
+                            <span id="draft-recipe-cost" class="text-lg font-bold text-brand-700">$0.00</span>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button type="submit" id="rec-submit-btn" class="flex-grow bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition">
+                                Save Recipe
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="w-full lg:w-7/12">
+                    <div id="recipes-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    <div id="recipes-empty" class="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm hidden">
+                        <i class="fa-solid fa-utensils text-4xl mb-3 text-gray-300"></i>
+                        <p class="text-gray-500 font-medium">No recipes saved yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-scheduler" class="tab-content hidden">
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Weekly Schedule</h2>
+                    <p class="text-sm text-gray-500 mt-1">Plan meals and track upcoming costs.</p>
+                </div>
+                <div class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-sm border border-gray-700 flex flex-col items-end w-full sm:w-auto">
+                    <span class="text-xs text-gray-300 uppercase tracking-wider font-semibold">Planned Cost</span>
+                    <span id="weekly-total-cost" class="text-2xl font-bold text-brand-400">$0.00</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="scheduler-grid"></div>
+        </div>
+
+        <div id="view-history" class="tab-content hidden">
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Monthly History</h2>
+                    <p class="text-sm text-gray-500 mt-1">Meals completed this month.</p>
+                </div>
+                <div class="bg-indigo-600 text-white px-5 py-3 rounded-xl shadow-sm flex flex-col items-end w-full sm:w-auto">
+                    <span class="text-xs text-indigo-200 uppercase tracking-wider font-semibold">Spent This Month</span>
+                    <span id="monthly-total-cost" class="text-2xl font-bold text-white">$0.00</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto custom-scroll">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe</th>
+                                <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch Size</th>
+                                <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-list" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
+                    </table>
+                </div>
+                <div id="history-empty" class="text-center py-10 text-gray-500 hidden">
+                    <i class="fa-solid fa-receipt text-3xl mb-2 text-gray-300"></i>
+                    <p>No meals completed yet this month.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-xl transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center gap-3 pointer-events-none">
+            <i class="fa-solid fa-circle-info text-brand-400"></i>
+            <span id="toast-msg">Notification</span>
+        </div>
+
+        <div id="recipe-modal" class="fixed inset-0 z-50 hidden bg-gray-900 bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden relative">
+                <div class="px-5 py-4 border-b border-gray-200 flex justify-between items-start bg-gray-50">
+                    <div>
+                        <h3 id="modal-recipe-title" class="text-xl font-bold text-gray-900 leading-tight">Recipe Name</h3>
+                        <div class="flex items-center gap-2 mt-2 flex-wrap">
+                            <span id="modal-recipe-batch" class="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">1x Batch</span>
+                            <span id="modal-recipe-cost" class="text-xs font-semibold text-gray-600 bg-gray-200 px-2 py-1 rounded">Cost: $0.00</span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeRecipeModal()" class="text-gray-400 hover:text-gray-600 transition-colors p-1 bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                
+                <div class="p-5 overflow-y-auto custom-scroll flex-grow">
+                    <div id="modal-recipe-url-container" class="mb-5 hidden">
+                        <a id="modal-recipe-url" href="#" target="_blank" class="text-brand-600 hover:text-brand-800 text-sm font-medium flex items-center gap-2 bg-brand-50 p-3 rounded-lg border border-brand-100 transition-colors">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Original Recipe Instructions
+                        </a>
+                    </div>
+
+                    <h4 class="font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 text-sm uppercase tracking-wider">Required Ingredients</h4>
+                    <ul id="modal-ingredients-list" class="space-y-2 mb-6"></ul>
+
+                    <h4 class="font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1 text-sm uppercase tracking-wider">Instructions</h4>
+                    <div id="modal-instructions" class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg border border-gray-100"></div>
+                </div>
+
+                <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex flex-wrap-reverse justify-end gap-3">
+                    <button type="button" onclick="closeRecipeModal()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors w-full sm:w-auto shadow-sm">
+                        Cancel
+                    </button>
+                    <button type="button" id="modal-complete-btn" class="px-5 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto">
+                        <i class="fa-solid fa-check"></i> Mark as Completed
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://ecydreahbbmybvehjeph.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjeWRyZWFoYmJteWJ2ZWhqZXBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTUyNjksImV4cCI6MjEwNjgzMTI2OX0.movKzagUzsSkpuSZ4_PpRAfjuuSJTmCFUDWm_GsKlAM';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let ingredientsData = [];
+        let recipesData = [];
+        let scheduleData = [];
+        
+        let editingIngredientId = null;
+        let editingRecipeId = null;
+        let activeModalScheduleId = null;
+        let draftRecipeIngredients = [];
+
+        const unitConversions = {
+            'g': 1, 'kg': 1000, 'oz': 28.35, 'lb': 453.59,
+            'ml': 1, 'l': 1000, 'tsp': 4.93, 'tbsp': 14.79, 'fl oz': 29.57, 'cup': 236.59,
+            'count': 1, 'slice': 1
+        };
+
+        async function initialLoad() {
+            try {
+                const [ingRes, recRes, schedRes] = await Promise.all([
+                    supabase.from('ingredients').select('*'),
+                    supabase.from('recipes').select('*'),
+                    supabase.from('meal_schedule').select('*')
+                ]);
+
+                if(ingRes.error) throw ingRes.error;
+                if(recRes.error) throw recRes.error;
+                if(schedRes.error) throw schedRes.error;
+
+                ingredientsData = ingRes.data || [];
+                recipesData = recRes.data || [];
+                scheduleData = schedRes.data || [];
+
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('sync-status').innerHTML = `<span class="text-brand-600"><i class="fa-solid fa-cloud-bolt mr-1"></i> Live</span>`;
+                
+                triggerRenders();
+                setupRealtime();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('sync-status').innerHTML = `<span class="text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Connection Error</span>`;
+                showToast("Failed to connect to database.", true);
+            }
+        }
+
+        function setupRealtime() {
+            supabase.channel('custom-all-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredients' }, payload => {
+                    handleRealtimeUpdate('ingredients', payload);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes' }, payload => {
+                    handleRealtimeUpdate('recipes', payload);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_schedule' }, payload => {
+                    handleRealtimeUpdate('meal_schedule', payload);
+                })
+                .subscribe();
+        }
+
+        function handleRealtimeUpdate(table, payload) {
+            let targetArray = table === 'ingredients' ? ingredientsData : 
+                              table === 'recipes' ? recipesData : scheduleData;
+            
+            if (payload.eventType === 'INSERT') {
+                targetArray.push(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+                const idx = targetArray.findIndex(i => i.id === payload.new.id);
+                if(idx > -1) targetArray[idx] = payload.new;
+            } else if (payload.eventType === 'DELETE') {
+                const idx = targetArray.findIndex(i => i.id === payload.old.id);
+                if(idx > -1) targetArray.splice(idx, 1);
+            }
+            triggerRenders();
+        }
+
+        function triggerRenders() {
+            renderInventory();
+            populateRecipeIngredientDropdown();
+            renderRecipes();
+            renderScheduler();
+            renderHistory();
+            if(editingRecipeId) updateDraftCost(); 
+        }
+
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('#tabs-container button').forEach(el => {
+                el.classList.remove('tab-active');
+                el.classList.add('tab-inactive', 'border-transparent');
+                el.classList.remove('border-b-2');
+            });
+            
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            const btn = document.getElementById(`tab-${tabId}`);
+            if(btn) {
+                btn.classList.add('tab-active');
+                btn.classList.remove('tab-inactive', 'border-transparent');
+            }
+        };
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.className = `fixed bottom-4 right-4 text-white px-4 py-3 rounded-lg shadow-xl transform transition-all duration-300 z-50 flex items-center gap-3 ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
+            
+            setTimeout(() => { toast.classList.remove('translate-y-20', 'opacity-0'); }, 10);
+            setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 3000);
+        }
+
+        function formatCurrency(amount) {
+            return "$" + (isNaN(amount) ? "0.00" : Number(amount).toFixed(2));
+        }
+
+        function calculateItemCost(draftItem) {
+            const baseRate = unitConversions[draftItem.baseUnit] || 1;
+            const reqRate = unitConversions[draftItem.unit] || 1;
+            const pricePerStandard = (draftItem.basePrice / draftItem.baseQty) / baseRate;
+            const totalStandardReq = draftItem.qty * reqRate;
+            return pricePerStandard * totalStandardReq;
+        }
+
+        function calculateRecipeTotal(recipeItemsJSON) {
+            return recipeItemsJSON.reduce((total, item) => {
+                const invItem = ingredientsData.find(i => i.id === item.ingredient_id);
+                if(invItem) {
+                    return total + calculateItemCost({
+                        qty: item.quantity, unit: item.unit,
+                        basePrice: invItem.price, baseQty: invItem.quantity, baseUnit: invItem.unit
+                    });
+                }
+                return total;
+            }, 0);
+        }
+
+        window.handleInventorySubmit = async function(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('inv-name').value.trim(),
+                price: parseFloat(document.getElementById('inv-price').value),
+                quantity: parseFloat(document.getElementById('inv-qty').value),
+                unit: document.getElementById('inv-unit').value
+            };
+
+            if(!payload.name || isNaN(payload.price) || isNaN(payload.quantity)) return;
+
+            try {
+                if(editingIngredientId) {
+                    await supabase.from('ingredients').update(payload).eq('id', editingIngredientId);
+                    showToast("Ingredient updated");
+                } else {
+                    await supabase.from('ingredients').insert([payload]);
+                    showToast("Ingredient added");
+                }
+                cancelEditInventory();
+            } catch(err) {
+                showToast("Error saving ingredient", true);
+            }
+        };
+
+        window.editIngredient = function(id) {
+            const ing = ingredientsData.find(i => i.id === id);
+            if(!ing) return;
+            
+            document.getElementById('inv-name').value = ing.name;
+            document.getElementById('inv-price').value = ing.price;
+            document.getElementById('inv-qty').value = ing.quantity;
+            document.getElementById('inv-unit').value = ing.unit;
+            
+            editingIngredientId = id;
+            document.getElementById('inv-form-title').innerText = "Edit Ingredient";
+            document.getElementById('inv-submit-btn').innerText = "Update Pantry";
+            document.getElementById('inv-cancel-btn').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.cancelEditInventory = function() {
+            editingIngredientId = null;
+            document.getElementById('form-inventory').reset();
+            document.getElementById('inv-form-title').innerText = "Add Ingredient";
+            document.getElementById('inv-submit-btn').innerText = "Save to Pantry";
+            document.getElementById('inv-cancel-btn').classList.add('hidden');
+        };
+
+        window.deleteIngredient = async function(id) {
+            if(!confirm("Are you sure you want to delete this ingredient? Recipes using it might lose cost accuracy.")) return;
+            try {
+                await supabase.from('ingredients').delete().eq('id', id);
+                showToast("Ingredient removed");
+            } catch(err) { showToast("Failed to delete", true); }
+        };
+
+        function renderInventory() {
+            const grid = document.getElementById('inventory-grid');
+            const emptyState = document.getElementById('inventory-empty');
+            grid.innerHTML = '';
+            
+            if(ingredientsData.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                const sorted = [...ingredientsData].sort((a,b) => a.name.localeCompare(b.name));
+                
+                sorted.forEach(ing => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col h-full';
+                    card.innerHTML = `
+                        <div class="mb-3 flex-grow">
+                            <h4 class="font-bold text-gray-900 text-lg leading-tight mb-1">${ing.name}</h4>
+                            <p class="text-sm text-gray-600 bg-gray-50 inline-block px-2 py-1 rounded border border-gray-100">
+                                ${formatCurrency(ing.price)} for ${ing.quantity} ${ing.unit}
+                            </p>
+                        </div>
+                        <div class="mt-auto pt-3 border-t border-gray-100 flex gap-2 w-full">
+                            <button onclick="editIngredient('${ing.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                            </button>
+                            <button onclick="deleteIngredient('${ing.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        function populateRecipeIngredientDropdown() {
+            const select = document.getElementById('rec-ing-select');
+            select.innerHTML = '<option value="" disabled selected>-- Select --</option>';
+            const sorted = [...ingredientsData].sort((a,b) => a.name.localeCompare(b.name));
+            sorted.forEach(ing => {
+                const opt = document.createElement('option');
+                opt.value = ing.id;
+                opt.textContent = `${ing.name} (${formatCurrency(ing.price)}/${ing.quantity}${ing.unit})`;
+                select.appendChild(opt);
+            });
+        }
+
+        window.addIngredientToDraft = function() {
+            const ingId = document.getElementById('rec-ing-select').value;
+            const qty = parseFloat(document.getElementById('rec-ing-qty').value);
+            const unit = document.getElementById('rec-ing-unit').value;
+
+            if(!ingId || isNaN(qty) || qty <= 0) return showToast("Select ingredient and valid quantity", true);
+
+            const ingInfo = ingredientsData.find(i => i.id === ingId);
+            if(!ingInfo) return;
+
+            draftRecipeIngredients.push({
+                tempId: crypto.randomUUID(),
+                ingredient_id: ingId, name: ingInfo.name, quantity: qty, unit: unit,
+                basePrice: ingInfo.price, baseQty: ingInfo.quantity, baseUnit: ingInfo.unit
+            });
+
+            document.getElementById('rec-ing-select').value = '';
+            document.getElementById('rec-ing-qty').value = '1';
+            renderDraftIngredients(); updateDraftCost();
+        };
+
+        window.removeDraftIngredient = function(tempId) {
+            draftRecipeIngredients = draftRecipeIngredients.filter(item => item.tempId !== tempId);
+            renderDraftIngredients(); updateDraftCost();
+        };
+
+        function renderDraftIngredients() {
+            const container = document.getElementById('recipe-ingredients-container');
+            const emptyMsg = document.getElementById('rec-ing-empty');
+            container.querySelectorAll('.draft-row').forEach(e => e.remove());
+
+            if(draftRecipeIngredients.length === 0) {
+                emptyMsg.style.display = 'block';
+            } else {
+                emptyMsg.style.display = 'none';
+                draftRecipeIngredients.forEach(item => {
+                    const cost = calculateItemCost({qty: item.quantity, unit: item.unit, basePrice: item.basePrice, baseQty: item.baseQty, baseUnit: item.baseUnit});
+                    const div = document.createElement('div');
+                    div.className = 'draft-row flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 text-sm shadow-sm mb-1';
+                    div.innerHTML = `
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-800">${item.name}</span>
+                            <span class="text-gray-500 text-xs">${item.quantity} ${item.unit} &middot; <span class="text-brand-600 font-semibold">${formatCurrency(cost)}</span></span>
+                        </div>
+                        <button type="button" onclick="removeDraftIngredient('${item.tempId}')" class="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-md">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        function updateDraftCost() {
+            const total = draftRecipeIngredients.reduce((sum, item) => sum + calculateItemCost({qty: item.quantity, unit: item.unit, basePrice: item.basePrice, baseQty: item.baseQty, baseUnit: item.baseUnit}), 0);
+            document.getElementById('draft-recipe-cost').innerText = formatCurrency(total);
+        }
+
+        window.handleRecipeSubmit = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('rec-name').value.trim();
+            const url = document.getElementById('rec-url').value.trim();
+            const instructions = document.getElementById('rec-instructions').value.trim();
+
+            if(!name || draftRecipeIngredients.length === 0) return showToast("Name and ingredients required", true);
+
+            const itemsPayload = draftRecipeIngredients.map(i => ({ ingredient_id: i.ingredient_id, quantity: i.quantity, unit: i.unit }));
+            const payload = { name, url, instructions, items: itemsPayload };
+
+            try {
+                if(editingRecipeId) {
+                    await supabase.from('recipes').update(payload).eq('id', editingRecipeId);
+                    showToast("Recipe updated!");
+                } else {
+                    await supabase.from('recipes').insert([payload]);
+                    showToast("Recipe saved!");
+                }
+                cancelEditRecipe();
+            } catch (err) { showToast("Failed to save recipe", true); }
+        };
+
+        window.editRecipe = function(id) {
+            const rec = recipesData.find(r => r.id === id);
+            if(!rec) return;
+
+            document.getElementById('rec-name').value = rec.name;
+            document.getElementById('rec-url').value = rec.url || "";
+            document.getElementById('rec-instructions').value = rec.instructions || "";
+            
+            draftRecipeIngredients = rec.items.map(i => {
+                const invInfo = ingredientsData.find(inv => inv.id === i.ingredient_id);
+                return {
+                    tempId: crypto.randomUUID(), ingredient_id: i.ingredient_id,
+                    name: invInfo ? invInfo.name : "Unknown", quantity: i.quantity, unit: i.unit,
+                    basePrice: invInfo ? invInfo.price : 0, baseQty: invInfo ? invInfo.quantity : 1, baseUnit: invInfo ? invInfo.unit : i.unit
+                };
+            });
+
+            editingRecipeId = id;
+            document.getElementById('rec-form-title').innerText = "Edit Recipe";
+            document.getElementById('rec-submit-btn').innerText = "Update Recipe";
+            document.getElementById('btn-new-recipe').classList.remove('hidden');
+            renderDraftIngredients(); updateDraftCost();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.cancelEditRecipe = function() {
+            editingRecipeId = null;
+            document.getElementById('form-recipe').reset();
+            draftRecipeIngredients = [];
+            renderDraftIngredients(); updateDraftCost();
+            document.getElementById('rec-form-title').innerText = "Create Recipe";
+            document.getElementById('rec-submit-btn').innerText = "Save Recipe";
+            document.getElementById('btn-new-recipe').classList.add('hidden');
+        };
+
+        window.deleteRecipe = async function(id) {
+            if(!confirm("Delete this recipe? Note: Existing scheduled meals using this recipe will be preserved.")) return;
+            try {
+                await supabase.from('recipes').delete().eq('id', id);
+                showToast("Recipe deleted");
+            } catch(err) { showToast("Failed to delete", true); }
+        };
+
+        function renderRecipes() {
+            const grid = document.getElementById('recipes-grid');
+            const emptyEl = document.getElementById('recipes-empty');
+            grid.innerHTML = '';
+            
+            if(recipesData.length === 0) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                
+                recipesData.forEach(rec => {
+                    const currentCost = calculateRecipeTotal(rec.items);
+                    const card = document.createElement('div');
+                    card.className = 'bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col h-full';
+                    
+                    const ingsList = rec.items.map(i => {
+                        const invMatch = ingredientsData.find(inv => inv.id === i.ingredient_id);
+                        return `${i.quantity}${i.unit} ${invMatch ? invMatch.name : 'Unknown'}`;
+                    }).join(', ');
+
+                    let urlHtml = rec.url ? `<a href="${rec.url}" target="_blank" class="text-xs text-brand-600 hover:text-brand-800 mt-2 inline-flex items-center gap-1 font-medium bg-brand-50 self-start px-2 py-1 rounded border border-brand-100"><i class="fa-solid fa-arrow-up-right-from-square"></i> Web Link</a>` : '';
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-2 gap-3">
+                            <h4 class="font-bold text-gray-900 text-lg leading-tight break-words">${rec.name}</h4>
+                            <span class="bg-brand-100 text-brand-800 font-bold px-2 py-1 rounded text-sm shrink-0 border border-brand-200">${formatCurrency(currentCost)}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-2 leading-relaxed flex-grow"><span class="font-semibold text-gray-700">Contains:</span> ${ingsList}</p>
+                        ${urlHtml}
+                        
+                        <div class="mt-4 pt-3 border-t border-gray-100 flex gap-2 w-full">
+                            <button onclick="editRecipe('${rec.id}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 rounded-lg text-sm font-semibold transition border border-indigo-100 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                            </button>
+                            <button onclick="deleteRecipe('${rec.id}')" class="flex-1 bg-red-50 hover:bg-red-100 text-red-700 py-1.5 rounded-lg text-sm font-semibold transition border border-red-100 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+        window.addToSchedule = async function(dayStr) {
+            const selectId = `sched-select-${dayStr}`;
+            const batchId = `sched-batch-${dayStr}`;
+            const recipeId = document.getElementById(selectId).value;
+            const batchSize = parseFloat(document.getElementById(batchId).value) || 1;
+            
+            if(!recipeId) return;
+
+            const rec = recipesData.find(r => r.id === recipeId);
+            if(!rec) return;
+
+            const estimated_cost = calculateRecipeTotal(rec.items) * batchSize;
+
+            try {
+                await supabase.from('meal_schedule').insert([{
+                    recipe_id: recipeId, recipe_name: rec.name, day_of_week: dayStr,
+                    batch_size: batchSize, estimated_cost: estimated_cost, completed: false
+                }]);
+                showToast("Added to schedule");
+            } catch(err) { showToast("Failed to schedule", true); }
+        };
+
+        window.removeFromSchedule = async function(e, docId) {
+            e.stopPropagation();
+            try { await supabase.from('meal_schedule').delete().eq('id', docId); } catch(err) {}
+        };
+
+        function renderScheduler() {
+            const grid = document.getElementById('scheduler-grid');
+            grid.innerHTML = '';
+            let weeklyTotal = 0;
+
+            let recipeOptionsHtml = '<option value="" disabled selected>Add Meal...</option>';
+            recipesData.forEach(r => { recipeOptionsHtml += `<option value="${r.id}">${r.name}</option>`; });
+
+            daysOfWeek.forEach(day => {
+                const dayItems = scheduleData.filter(s => s.day_of_week === day && !s.completed);
+                let itemsHtml = '';
+
+                if(dayItems.length === 0) {
+                    itemsHtml = `<p class="text-xs text-gray-400 italic text-center py-4">No meals planned</p>`;
+                } else {
+                    dayItems.forEach(item => {
+                        weeklyTotal += item.estimated_cost;
+                        const batchBadge = item.batch_size > 1 ? `<span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold ml-1.5">${item.batch_size}x</span>` : '';
+
+                        itemsHtml += `
+                            <div onclick="openRecipeModal('${item.id}')" class="bg-white border border-gray-200 rounded-lg p-2.5 mb-2 flex justify-between items-center text-sm shadow-sm cursor-pointer transition-colors hover:border-brand-300 hover:shadow-md group">
+                                <div class="flex-grow truncate pr-2 font-medium text-gray-800 flex items-center">
+                                    ${item.recipe_name} ${batchBadge}
+                                </div>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <span class="text-xs text-gray-600 font-bold bg-gray-100 px-2 py-0.5 rounded">${formatCurrency(item.estimated_cost)}</span>
+                                    <button onclick="removeFromSchedule(event, '${item.id}')" class="text-gray-400 hover:text-red-600 transition-colors p-1 bg-gray-50 hover:bg-red-50 rounded">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                const dayCard = document.createElement('div');
+                dayCard.className = 'bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full';
+                dayCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                        <h3 class="font-bold text-gray-800 uppercase tracking-wide text-sm">${day}</h3>
+                    </div>
+                    <div class="flex-grow overflow-y-auto custom-scroll pr-1 mb-3 max-h-56 min-h-[5rem]">
+                        ${itemsHtml}
+                    </div>
+                    <div class="mt-auto pt-3 border-t border-gray-200">
+                        <div class="flex flex-col gap-2">
+                            <select id="sched-select-${day}" class="w-full px-2 py-2 text-sm border border-gray-300 rounded-md bg-white outline-none focus:ring-2 focus:ring-brand-500 truncate">
+                                ${recipeOptionsHtml}
+                            </select>
+                            <div class="flex gap-2">
+                                <select id="sched-batch-${day}" class="w-20 px-2 py-2 text-sm border border-gray-300 rounded-md bg-white outline-none focus:ring-2 focus:ring-brand-500">
+                                    <option value="1">1x</option><option value="2">2x</option>
+                                    <option value="3">3x</option><option value="4">4x</option>
+                                </select>
+                                <button onclick="addToSchedule('${day}')" class="flex-grow bg-white hover:bg-gray-100 text-gray-800 py-2 rounded-md transition text-sm font-semibold border border-gray-300 shadow-sm">
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(dayCard);
+            });
+
+            document.getElementById('weekly-total-cost').innerText = formatCurrency(weeklyTotal);
+        }
+
+        window.openRecipeModal = function(scheduleId) {
+            const schedItem = scheduleData.find(s => s.id === scheduleId);
+            if(!schedItem) return;
+            
+            const recipe = recipesData.find(r => r.id === schedItem.recipe_id);
+            const instText = recipe ? (recipe.instructions || "No instructions provided.") : "Original recipe was deleted. Instructions unavailable.";
+
+            activeModalScheduleId = scheduleId;
+
+            document.getElementById('modal-recipe-title').innerText = schedItem.recipe_name;
+            document.getElementById('modal-recipe-batch').innerText = `${schedItem.batch_size}x Batch`;
+            document.getElementById('modal-recipe-cost').innerText = `Cost: ${formatCurrency(schedItem.estimated_cost)}`;
+
+            const urlContainer = document.getElementById('modal-recipe-url-container');
+            const urlLink = document.getElementById('modal-recipe-url');
+            if(recipe && recipe.url) {
+                urlLink.href = recipe.url;
+                urlContainer.classList.remove('hidden');
+            } else {
+                urlContainer.classList.add('hidden');
+            }
+
+            document.getElementById('modal-instructions').innerText = instText;
+
+            const ingList = document.getElementById('modal-ingredients-list');
+            ingList.innerHTML = '';
+            
+            if(recipe) {
+                recipe.items.forEach(i => {
+                    const invInfo = ingredientsData.find(inv => inv.id === i.ingredient_id);
+                    const name = invInfo ? invInfo.name : "Unknown Ingredient";
+                    const scaledQty = parseFloat((i.quantity * schedItem.batch_size).toFixed(2)).toString();
+
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg text-sm shadow-sm";
+                    li.innerHTML = `<span class="text-gray-800 font-medium">${name}</span><span class="text-brand-700 bg-brand-50 border border-brand-100 px-2.5 py-1 rounded-md font-bold">${scaledQty} ${i.unit}</span>`;
+                    ingList.appendChild(li);
+                });
+            } else {
+                ingList.innerHTML = '<li class="text-sm text-red-500 italic">Ingredient data unavailable.</li>';
+            }
+
+            document.getElementById('recipe-modal').classList.remove('hidden');
+        };
+
+        window.closeRecipeModal = function() {
+            activeModalScheduleId = null;
+            document.getElementById('recipe-modal').classList.add('hidden');
+        };
+
+        document.getElementById('modal-complete-btn').addEventListener('click', async () => {
+            if(!activeModalScheduleId) return;
+            try {
+                await supabase.from('meal_schedule').update({
+                    completed: true, completed_at: new Date().toISOString()
+                }).eq('id', activeModalScheduleId);
+                closeRecipeModal();
+                showToast("Meal completed & recorded!");
+            } catch(err) { showToast("Failed to complete meal", true); }
+        });
+
+        function renderHistory() {
+            const listEl = document.getElementById('history-list');
+            const emptyEl = document.getElementById('history-empty');
+            
+            const now = new Date();
+            const currMonth = now.getMonth();
+            const currYear = now.getFullYear();
+
+            const thisMonthHistory = scheduleData.filter(item => {
+                if(!item.completed || !item.completed_at) return false;
+                const d = new Date(item.completed_at);
+                return d.getMonth() === currMonth && d.getFullYear() === currYear;
+            }).sort((a,b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+            listEl.innerHTML = '';
+            let monthTotal = 0;
+
+            if(thisMonthHistory.length === 0) {
+                emptyEl.classList.remove('hidden');
+                document.querySelector('#view-history table').classList.add('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                document.querySelector('#view-history table').classList.remove('hidden');
+                
+                thisMonthHistory.forEach(item => {
+                    monthTotal += item.estimated_cost;
+                    const d = new Date(item.completed_at);
+                    const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-500">${dateStr}</td>
+                        <td class="px-5 py-3 whitespace-nowrap text-gray-900 font-bold">${item.recipe_name}</td>
+                        <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-500"><span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-bold">${item.batch_size}x</span></td>
+                        <td class="px-5 py-3 whitespace-nowrap text-right text-sm font-bold text-brand-600">${formatCurrency(item.estimated_cost)}</td>
+                    `;
+                    listEl.appendChild(tr);
+                });
+            }
+            document.getElementById('monthly-total-cost').innerText = formatCurrency(monthTotal);
+        }
+
+        initialLoad();
+
+    </script>
+</body>
+</html>
