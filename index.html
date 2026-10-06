@@ -326,7 +326,9 @@
     <script>
         const SUPABASE_URL = 'https://ecydreahbbmybvehjeph.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjeWRyZWFoYmJteWJ2ZWhqZXBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNTUyNjksImV4cCI6MjEwNjgzMTI2OX0.movKzagUzsSkpuSZ4_PpRAfjuuSJTmCFUDWm_GsKlAM';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Using 'supabaseClient' instead of 'supabase' to prevent naming collision with the CDN library
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let ingredientsData = [];
         let recipesData = [];
@@ -346,9 +348,9 @@
         async function initialLoad() {
             try {
                 const [ingRes, recRes, schedRes] = await Promise.all([
-                    supabase.from('ingredients').select('*'),
-                    supabase.from('recipes').select('*'),
-                    supabase.from('meal_schedule').select('*')
+                    supabaseClient.from('ingredients').select('*'),
+                    supabaseClient.from('recipes').select('*'),
+                    supabaseClient.from('meal_schedule').select('*')
                 ]);
 
                 if(ingRes.error) throw ingRes.error;
@@ -372,7 +374,7 @@
         }
 
         function setupRealtime() {
-            supabase.channel('custom-all-channel')
+            supabaseClient.channel('custom-all-channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredients' }, payload => {
                     handleRealtimeUpdate('ingredients', payload);
                 })
@@ -473,10 +475,10 @@
 
             try {
                 if(editingIngredientId) {
-                    await supabase.from('ingredients').update(payload).eq('id', editingIngredientId);
+                    await supabaseClient.from('ingredients').update(payload).eq('id', editingIngredientId);
                     showToast("Ingredient updated");
                 } else {
-                    await supabase.from('ingredients').insert([payload]);
+                    await supabaseClient.from('ingredients').insert([payload]);
                     showToast("Ingredient added");
                 }
                 cancelEditInventory();
@@ -512,7 +514,7 @@
         window.deleteIngredient = async function(id) {
             if(!confirm("Are you sure you want to delete this ingredient? Recipes using it might lose cost accuracy.")) return;
             try {
-                await supabase.from('ingredients').delete().eq('id', id);
+                await supabaseClient.from('ingredients').delete().eq('id', id);
                 showToast("Ingredient removed");
             } catch(err) { showToast("Failed to delete", true); }
         };
@@ -635,10 +637,10 @@
 
             try {
                 if(editingRecipeId) {
-                    await supabase.from('recipes').update(payload).eq('id', editingRecipeId);
+                    await supabaseClient.from('recipes').update(payload).eq('id', editingRecipeId);
                     showToast("Recipe updated!");
                 } else {
-                    await supabase.from('recipes').insert([payload]);
+                    await supabaseClient.from('recipes').insert([payload]);
                     showToast("Recipe saved!");
                 }
                 cancelEditRecipe();
@@ -683,7 +685,7 @@
         window.deleteRecipe = async function(id) {
             if(!confirm("Delete this recipe? Note: Existing scheduled meals using this recipe will be preserved.")) return;
             try {
-                await supabase.from('recipes').delete().eq('id', id);
+                await supabaseClient.from('recipes').delete().eq('id', id);
                 showToast("Recipe deleted");
             } catch(err) { showToast("Failed to delete", true); }
         };
@@ -748,7 +750,7 @@
             const estimated_cost = calculateRecipeTotal(rec.items) * batchSize;
 
             try {
-                await supabase.from('meal_schedule').insert([{
+                await supabaseClient.from('meal_schedule').insert([{
                     recipe_id: recipeId, recipe_name: rec.name, day_of_week: dayStr,
                     batch_size: batchSize, estimated_cost: estimated_cost, completed: false
                 }]);
@@ -758,7 +760,7 @@
 
         window.removeFromSchedule = async function(e, docId) {
             e.stopPropagation();
-            try { await supabase.from('meal_schedule').delete().eq('id', docId); } catch(err) {}
+            try { await supabaseClient.from('meal_schedule').delete().eq('id', docId); } catch(err) {}
         };
 
         function renderScheduler() {
@@ -881,7 +883,7 @@
         document.getElementById('modal-complete-btn').addEventListener('click', async () => {
             if(!activeModalScheduleId) return;
             try {
-                await supabase.from('meal_schedule').update({
+                await supabaseClient.from('meal_schedule').update({
                     completed: true, completed_at: new Date().toISOString()
                 }).eq('id', activeModalScheduleId);
                 closeRecipeModal();
